@@ -1,5 +1,6 @@
 #include<bits/stdc++.h>
 #include "Heuristic.hpp"
+#include<chrono>
 using namespace std;
 
 
@@ -94,11 +95,13 @@ struct Result{
     int explored;
     int expanded;
     int steps;
-    Result(bool solved=false,int explored=0,int expanded=0,int steps=-1){
+    double timeTaken;
+    Result(bool solved=false,int explored=0,int expanded=0,int steps=-1,double timeTaken=0.0){
         this->expanded=expanded;
         this->explored=explored;
         this->solved=solved;
         this->steps=steps;
+        this->timeTaken=timeTaken;
     }
 };
 class Solver{
@@ -110,14 +113,17 @@ class Solver{
         this->weight=weight;
     }
     Result solve(Puzzle& puzzle,bool printPath=false){
+        auto startTime=chrono::high_resolution_clock::now();
         if(printPath){
             cout << heuristic->name << " Heuristic:\n";
             cout << "-------------------------\n";
         }
+        vector<State*> allocatedStates;
         CompareState comp(heuristic,puzzle.targetBoard,weight);
         priority_queue<State*,vector<State*>,CompareState> openlist(comp);
         unordered_map<string,int> gScore;
         State* start=new State(puzzle.initialBoard,0,nullptr);
+        allocatedStates.push_back(start);
         openlist.push(start);
         gScore[start->board.getKey()]=0;
         int explored=1;
@@ -142,6 +148,7 @@ class Solver{
                     gScore[nextKey]=tentativeG;
                     State* child =new State(next.board,tentativeG,current);
                     openlist.push(child);
+                    allocatedStates.push_back(child);
                     explored++;
                 }
             }
@@ -149,6 +156,8 @@ class Solver{
         if(finalState!=nullptr){
             vector<State*> path=finalState->getAncestors();
             reverse(path.begin(),path.end());
+            auto endtime=chrono::high_resolution_clock::now();
+            double elapsed=chrono::duration<double,milli>(endtime-startTime).count();
             if(printPath){
                 cout<<"\nSolution Path:\n\n";
                 for(State* s:path){
@@ -159,10 +168,30 @@ class Solver{
                 cout<<"\nExplored Nodes: "<<explored;
                 cout<<"\nExpanded Nodes: "<<expanded;
                 cout<<"\nSteps Needed: "<<path.size()<<endl;
+                cout<<"Time Taken: "<<elapsed<<" ms\n";
             }
-            return Result(true,explored,expanded,path.size());
+            
+            Result ans(true,explored,expanded,path.size(),elapsed);
+            for(State* s:allocatedStates){
+                delete s;
+            }
+            
+            return ans;
         }
-        return Result(false,explored,expanded,-1);
+        auto endTime = chrono::high_resolution_clock::now();
+
+        double elapsed =
+        chrono::duration<double,milli>(endTime-startTime).count();
+
+        Result ans(false,
+            explored,
+            expanded,
+            -1,
+            elapsed);
+        for(State* s:allocatedStates){
+            delete s;
+        }
+        return ans;
     }
 };
 
@@ -173,7 +202,6 @@ void runBenchmark(string inputFile,
                 Heuristic* heuristic);
 
 int main() {
-    double weights[] ={1.0,1.2,2.0,5.0};
     cout <<"1. Solve a puzzle\n";
     cout <<"2. Benchmark\n";
     int choice;
@@ -326,20 +354,22 @@ void runBenchmark(string inputFile,
         fout<<"Puzzle is solvable.\n\n";
         fout<<left
             <<setw(10)<<"Weight"
-            <<setw(15)<<"Steps"
-            <<setw(18)<<"Explored"
-            <<setw(18)<<"Expanded"
+            <<setw(12)<<"Steps"
+            <<setw(15)<<"Explored"
+            <<setw(15)<<"Expanded"
+            <<setw(15)<<"Time(ms)"
             <<"\n";
         fout<<string(60,'-')<<"\n";
         for(double w:weights){
             Solver solver(heuristic,w);
             Result r=solver.solve(puzzle,false);
             fout<<left
-                <<setw(10)<<w
-                <<setw(15)<<r.steps
-                <<setw(18)<<r.explored
-                <<setw(18)<<r.expanded
-                <<"\n";
+    <<setw(10)<<w
+    <<setw(12)<<r.steps
+    <<setw(15)<<r.explored
+    <<setw(15)<<r.expanded
+    <<setw(15)<<fixed<<setprecision(3)<<r.timeTaken
+    <<"\n";
         }
         fout<<"\n\n";
     }
