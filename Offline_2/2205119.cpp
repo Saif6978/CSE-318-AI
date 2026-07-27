@@ -235,14 +235,6 @@ int localSearchMaxCut(const Graph &graph, vector<int> &side){
         for(const auto &edge : graph.adj[bestVertex]){
             int neighbour = edge.first;
             int weight = edge.second;
-            /*if(side[neighbour] == oldSide){
-                sigmaX[neighbour]-=weight;
-                sigmaY[neighbour]+=weight;
-            }
-            else{
-                sigmaX[neighbour]+=weight;
-                sigmaY[neighbour]-=weight;
-            }*/
             if(oldSide == 0){
                 sigmaX[neighbour] -= weight;
                 sigmaY[neighbour] += weight;
@@ -252,7 +244,6 @@ int localSearchMaxCut(const Graph &graph, vector<int> &side){
                 sigmaX[neighbour] += weight;
             }
         }
-        //swap(sigmaX[bestVertex] , sigmaY[bestVertex]);
     }
     return calculateCutWeight(graph,side);
 }
@@ -321,7 +312,7 @@ void benchmark(int numGraphs = 54,
 
     for(int i = 1; i <= numGraphs; i++){
         string name = "G" + to_string(i);
-        string path = folder + "g" + to_string(i) + ".rud";   // <-- matches your g1.rud naming
+        string path = folder + "g" + to_string(i) + ".rud";   
 
         ifstream test(path);
         if(!test){ cerr << "Warning: could not open " << path << " -- skipping.\n"; continue; }
@@ -372,84 +363,128 @@ void benchmark(int numGraphs = 54,
 }
 
 
+int main() {
+    cout << "=========================================\n";
+    cout << "          MAX-CUT USING GRASP\n";
+    cout << "=========================================\n";
+    cout << "1. Run algorithms on a single graph\n";
+    cout << "2. Run benchmark on all graphs\n";
+    cout << "0. Exit\n";
+    cout << "=========================================\n";
+    cout << "Enter choice: ";
 
-int main(){
-    benchmark(54, "../graph_GRASP/set1/", "output.txt");  // expects g1.rud ... g54.rud in graphs/
-    return 0;
-}
-
-
-
-
-/*int main(){
-    string filename;
-    cin >> filename;
-    Graph graph = readGraph(filename);
     int choice;
     cin >> choice;
-    if(choice == 1){
-        int trials , seed;
-        cin >> trials >> seed;
 
-        cout << randomizedAverageCut(graph , trials , seed);
-    }
-    else if(choice ==  2){
-        cout << greedyMaxCut(graph) << endl;
-    }
-    else if(choice == 3){
-        double alpha;
-        int seed;
-        cin >> alpha  >> seed;
+    switch(choice){
+
+    case 1:
+    {
+        string filename;
+
+        cout << "\nEnter graph file path: ";
+        cin >> filename;
+
+        Graph graph = readGraph(filename);
+
+        cout << "\nGraph Loaded Successfully\n";
+        cout << "Vertices : " << graph.vertices << endl;
+        cout << "Edges    : " << graph.edges << endl;
+
+        const int seed = 42;
+        const int randomTrials = 1000;
+        const int semiGreedyRuns = 30;
+        const int graspIterations = 100;
+        const double alpha = 0.5;
+
         mt19937 rng(seed);
-        vector<int> side;
-        cout << semiGreedyMaxCut(graph , alpha, rng, side);
+
+        cout << "\n=========================================\n";
+        cout << "Results\n";
+        cout << "=========================================\n";
+
+        // Randomized
+        double randomAvg =
+            randomizedAverageCut(graph, randomTrials, seed);
+
+        cout << left << setw(30) << "Randomized Average Cut" << ": " << randomAvg << endl;
+
+        // Greedy
+        int greedy =
+            greedyMaxCut(graph);
+
+        cout << left << setw(30)<< "Greedy Cut"<< ": " << greedy << endl;
+
+        // Semi-Greedy
+        long long semiSum = 0;
+        int semiBest = -1;
+
+        mt19937 semiRng(seed);
+
+        for(int i=0;i<semiGreedyRuns;i++){
+            vector<int> side;
+            int val = semiGreedyMaxCut(graph, alpha, semiRng, side);
+
+            semiSum += val;
+            semiBest = max(semiBest, val);
+        }
+
+        cout << left << setw(30)<< "Semi-Greedy Average" << ": "<< (double)semiSum/semiGreedyRuns<< endl;
+
+        cout << left << setw(30)<< "Semi-Greedy Best"<< ": "<< semiBest<< endl;
+
+        // Local Search
+        long long localSum = 0;
+        int localBest = -1;
+
+        mt19937 localRng(seed);
+
+        for(int i=0;i<semiGreedyRuns;i++){
+
+            vector<int> side;
+
+            semiGreedyMaxCut(graph, alpha, localRng, side);
+
+            int val = localSearchMaxCut(graph, side);
+
+            localSum += val;
+            localBest = max(localBest, val);
+        }
+
+        cout << left << setw(30)  << "Local Search Average" << ": " << (double)localSum/semiGreedyRuns<< endl;
+
+        cout << left << setw(30)<< "Local Search Best"<< ": "<< localBest<< endl;
+
+        int grasp =
+            graspMaxCut(graph, alpha,graspIterations,seed);
+
+        cout << left << setw(30)<< "GRASP" << ": " << grasp << endl;
+
+        cout << "=========================================\n";
+
+        break;
     }
-    else if(choice == 4 ){
-        double alpha;
-        int iterations;
-        int seed;
-        cin >> alpha >> iterations >> seed;
-        cout << graspMaxCut(graph , alpha , iterations, seed) << endl;
+
+    case 2:
+    {
+        benchmark(54,"../graph_GRASP/set1/","output.txt"
+        );
+        break;
     }
 
-}*/
-/*int main()
-{
-    Graph graph(8, 14);
+    case 0:
+    {
+        cout << "Program terminated.\n";
+        break;
+    }
 
-graph.addEdge(1,2,8);
-graph.addEdge(1,3,2);
-graph.addEdge(1,4,1);
-graph.addEdge(2,3,7);
-graph.addEdge(2,5,6);
-graph.addEdge(3,4,9);
-graph.addEdge(3,6,5);
-graph.addEdge(4,5,4);
-graph.addEdge(4,7,8);
-graph.addEdge(5,6,3);
-graph.addEdge(5,8,7);
-graph.addEdge(6,7,6);
-graph.addEdge(6,8,2);
-graph.addEdge(7,8,9);
+    default:
+    {
+        cout << "Invalid choice.\n";
+        break;
+    }
 
-    mt19937 rng(42);
-
-    cout << "Randomized Average Cut : "
-        << randomizedAverageCut(graph, 1000, 42) << endl;
-
-    cout << "Greedy Cut            : "
-        << greedyMaxCut(graph) << endl;
-
-    vector<int> side;
-
-    cout << "Semi-Greedy Cut       : "
-        << semiGreedyMaxCut(graph, 0.5, rng, side) << endl;
-
-    cout << "After Local Search    : "
-        << localSearchMaxCut(graph, side) << endl;
-
-    cout << "GRASP Cut             : "
-        << graspMaxCut(graph, 0.5, 100, 42) << endl;
+    }
 
     return 0;
-}*/
+}
